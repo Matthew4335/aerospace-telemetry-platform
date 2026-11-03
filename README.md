@@ -73,10 +73,6 @@ aerospace-telemetry-platform/
 - [ ] Anomaly detection
 - [ ] Automated testing and documentation
 
-## **Data Disclaimer**
-
-This project uses synthetic telemetry data rather than real aerospace flight-test data. Its purpose is to demonstrate data engineering, database design, and analytical workflows in an aerospace application.
-
 ## **Author**
 
 **Matthew Brown**  
