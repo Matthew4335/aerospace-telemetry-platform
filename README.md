@@ -18,12 +18,6 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
 - **Database Engineering:** Design a PostgreSQL database connecting missions, vehicles, sensors, and telemetry readings.
 - **SQL Analytics:** Analyze mission performance and sensor measurements using SQL queries and aggregations.
 
-## SQL Analytics
-
-The platform includes PostgreSQL queries for analyzing synthetic rocket flight telemetry.
-
-### Run the Analytics
-
 From the repository root, run:
 
 ```bash
