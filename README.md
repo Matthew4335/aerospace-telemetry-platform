@@ -64,9 +64,9 @@ aerospace-telemetry-platform/
 - [x] GitHub repository setup
 - [x] PostgreSQL database schema
 - [x] Synthetic telemetry generation
-- [ ] Python ETL pipeline
-- [ ] Data validation and quality checks
-- [ ] SQL analytics
+- [x] Python ETL pipeline
+- [x] Data validation and quality checks
+- [x] SQL analytics
 - [ ] FastAPI endpoints
 - [ ] Docker containerization
 - [ ] AWS integration
