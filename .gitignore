@@ -14,3 +14,6 @@ __pycache__/
 
 # Data files
 *.csv
+
+# Generated ETL quality reports
+data/quality/

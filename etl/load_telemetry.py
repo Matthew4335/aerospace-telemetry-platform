@@ -13,6 +13,11 @@ from load import (
     get_lookup_tables,
     insert_telemetry,
 )
+from quality import (
+    validate_metadata,
+    build_quality_reports,
+    save_quality_reports,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -22,10 +27,11 @@ load_dotenv(PROJECT_ROOT / ".env")
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 REJECTED_DIR = PROJECT_ROOT / "data" / "rejected"
+QUALITY_DIR = PROJECT_ROOT / "data" / "quality"
 
 
 def save_rejected_records(rejected_rows):
-    """Save rejected telemetry to a CSV file."""
+    """Preserve invalid source records and rejection reasons."""
 
     REJECTED_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -40,25 +46,23 @@ def save_rejected_records(rejected_rows):
         "rejection_reason",
     ]
 
-    rejected_df = pd.DataFrame(
+    pd.DataFrame(
         rejected_rows,
         columns=columns,
-    )
-
-    rejected_df.to_csv(output_file, index=False)
+    ).to_csv(output_file, index=False)
 
     return output_file
 
 
 def main():
-    """Run the complete telemetry ETL pipeline."""
+    """Run the ETL pipeline and produce data-quality reports."""
 
     if not DATABASE_URL:
         raise RuntimeError(
-            "DATABASE_URL is missing from your .env file"
+            "DATABASE_URL is missing from .env"
         )
 
-    print("Starting telemetry ETL pipeline...")
+    print("Starting aerospace telemetry ETL...")
 
     # STEP 1: EXTRACT
     vehicles, missions, sensors, readings = (
@@ -67,14 +71,17 @@ def main():
 
     print(f"Source readings: {len(readings):,}")
 
-    # STEP 2: CONNECT
+    # STEP 2: VALIDATE SOURCE METADATA
+    validate_metadata(vehicles, missions, sensors)
+
+    print("Source metadata validation passed.")
+
     engine = create_engine(DATABASE_URL)
 
     try:
-        # Use one database transaction.
+        # STEP 3: DATABASE TRANSACTION
         with engine.begin() as conn:
 
-            # STEP 3: LOAD METADATA
             load_metadata(
                 conn,
                 vehicles,
@@ -82,36 +89,93 @@ def main():
                 sensors,
             )
 
-            # STEP 4: GET DATABASE IDS
             mission_lookup, sensor_lookup = (
                 get_lookup_tables(conn)
             )
 
-            # STEP 5: TRANSFORM
+            # Ensure existing missions belong to the
+            # vehicles specified in our source metadata.
+            for source in missions.to_dict("records"):
+                stored = mission_lookup.get(
+                    source["mission_name"]
+                )
+
+                if (
+                    stored is None
+                    or stored["vehicle_name"]
+                    != source["vehicle_name"]
+                ):
+                    raise ValueError(
+                        "Mission/vehicle mismatch: "
+                        + source["mission_name"]
+                    )
+
+            # STEP 4: TRANSFORM EXISTING TELEMETRY
             valid_rows, rejected_rows = transform_readings(
                 readings,
                 mission_lookup,
                 sensor_lookup,
             )
 
-            # STEP 6: LOAD TELEMETRY
+            # STEP 5: ANALYZE QUALITY
+            quality_summary, quality_issues = (
+                build_quality_reports(
+                    valid_rows,
+                    missions,
+                    mission_lookup,
+                    sensor_lookup,
+                )
+            )
+
+            # STEP 6: LOAD VALID TELEMETRY
             inserted_count = insert_telemetry(
                 conn,
                 valid_rows,
             )
 
-        # STEP 7: SAVE REJECTED RECORDS
+        # Transaction has now committed successfully.
+
+        # STEP 7: WRITE REJECTION REPORT
         rejected_file = save_rejected_records(
             rejected_rows
         )
 
-        # STEP 8: REPORT RESULTS
-        print("\nETL complete!")
+        # STEP 8: WRITE DATA-QUALITY REPORTS
+        audit = save_quality_reports(
+            QUALITY_DIR,
+            quality_summary,
+            quality_issues,
+            source_count=len(readings),
+            valid_count=len(valid_rows),
+            rejected_rows=rejected_rows,
+            inserted_count=inserted_count,
+        )
+
+        # STEP 9: PRINT SUMMARY
+        print("\nETL completed successfully!")
         print(f"Source rows: {len(readings):,}")
         print(f"Valid rows: {len(valid_rows):,}")
         print(f"Rejected rows: {len(rejected_rows):,}")
-        print(f"New rows inserted: {inserted_count:,}")
-        print(f"Rejection report: {rejected_file}")
+        print(f"New database rows: {inserted_count:,}")
+        print(
+            f"Quality warnings: "
+            f"{audit['quality_warnings']:,}"
+        )
+
+        print("\nReports:")
+        print(f"Rejected: {rejected_file}")
+        print(
+            f"Quality summary: "
+            f"{QUALITY_DIR / 'quality_summary.csv'}"
+        )
+        print(
+            f"Quality issues: "
+            f"{QUALITY_DIR / 'quality_issues.csv'}"
+        )
+        print(
+            f"Ingestion summary: "
+            f"{QUALITY_DIR / 'ingestion_summary.json'}"
+        )
 
         if rejected_rows:
             reasons = pd.Series([
@@ -119,7 +183,7 @@ def main():
                 for row in rejected_rows
             ])
 
-            print("\nRejection summary:")
+            print("\nRejection reasons:")
             print(reasons.value_counts().to_string())
 
     finally:
