@@ -189,3 +189,81 @@ def insert_telemetry(conn, valid_rows):
             inserted_count += result.rowcount
 
     return inserted_count
+
+
+def reject_conflicting_readings(conn, valid_rows):
+    """
+    Check whether incoming readings conflict with PostgreSQL.
+
+    Same mission + sensor + timestamp + value:
+        Allowed. The existing insert skips it.
+
+    Same mission + sensor + timestamp, different value:
+        Raise ValueError.
+
+    Checks records in batches to avoid one query per reading.
+    """
+
+    if not valid_rows:
+        return
+
+    check_batch_size = 500
+
+    for start in range(0, len(valid_rows), check_batch_size):
+        batch = valid_rows[start:start + check_batch_size]
+
+        placeholders = []
+        parameters = {}
+
+        for index, row in enumerate(batch):
+            placeholders.append(
+                f"(:m{index}, :s{index}, :t{index}, :v{index})"
+            )
+
+            parameters[f"m{index}"] = row["mission_id"]
+            parameters[f"s{index}"] = row["sensor_id"]
+            parameters[f"t{index}"] = row["recorded_at"]
+            parameters[f"v{index}"] = row["measurement_value"]
+
+        values_sql = ", ".join(placeholders)
+
+        query = text(f"""
+            WITH incoming (
+                mission_id,
+                sensor_id,
+                recorded_at,
+                measurement_value
+            ) AS (
+                VALUES {values_sql}
+            )
+            SELECT
+                i.mission_id,
+                i.sensor_id,
+                i.recorded_at,
+                t.measurement_value AS stored_value,
+                i.measurement_value AS incoming_value
+            FROM incoming i
+            JOIN telemetry_readings t
+                ON t.mission_id = i.mission_id
+                AND t.sensor_id = i.sensor_id
+                AND t.recorded_at = i.recorded_at
+            WHERE t.measurement_value
+                IS DISTINCT FROM i.measurement_value
+            LIMIT 1
+        """)
+
+        conflict = conn.execute(
+            query,
+            parameters,
+        ).mappings().first()
+
+        if conflict is not None:
+            raise ValueError(
+                "Conflicting telemetry reading: "
+                f"mission_id={conflict['mission_id']}, "
+                f"sensor_id={conflict['sensor_id']}, "
+                f"timestamp={conflict['recorded_at']}, "
+                f"stored_value={conflict['stored_value']}, "
+                f"incoming_value={conflict['incoming_value']}"
+            )
+

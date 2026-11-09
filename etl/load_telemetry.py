@@ -12,6 +12,7 @@ from load import (
     load_metadata,
     get_lookup_tables,
     insert_telemetry,
+    reject_conflicting_readings,
 )
 from quality import (
     validate_metadata,
@@ -126,8 +127,13 @@ def main():
                     sensor_lookup,
                 )
             )
+            # STEP 6: CHECK FOR CONFLICTING DATABASE RECORDS
+            reject_conflicting_readings(
+                conn,
+                valid_rows,
+            )
 
-            # STEP 6: LOAD VALID TELEMETRY
+            # STEP 7: LOAD VALID TELEMETRY
             inserted_count = insert_telemetry(
                 conn,
                 valid_rows,
@@ -135,12 +141,12 @@ def main():
 
         # Transaction has now committed successfully.
 
-        # STEP 7: WRITE REJECTION REPORT
+        # STEP 8: WRITE REJECTION REPORT
         rejected_file = save_rejected_records(
             rejected_rows
         )
 
-        # STEP 8: WRITE DATA-QUALITY REPORTS
+        # STEP 9: WRITE DATA-QUALITY REPORTS
         audit = save_quality_reports(
             QUALITY_DIR,
             quality_summary,
@@ -151,7 +157,7 @@ def main():
             inserted_count=inserted_count,
         )
 
-        # STEP 9: PRINT SUMMARY
+        # STEP 10: PRINT SUMMARY
         print("\nETL completed successfully!")
         print(f"Source rows: {len(readings):,}")
         print(f"Valid rows: {len(valid_rows):,}")
