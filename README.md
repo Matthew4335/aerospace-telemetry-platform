@@ -97,7 +97,7 @@ aerospace-telemetry-platform/
 - [x] Python ETL pipeline
 - [x] Data validation and quality checks
 - [x] SQL analytics
-- [ ] FastAPI endpoints
+- [x] FastAPI endpoints
 - [ ] Docker containerization
 - [ ] AWS integration
 - [ ] Anomaly detection
