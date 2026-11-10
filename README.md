@@ -48,6 +48,36 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
   python -m pytest tests/test_api.py -v
   ```
 
+- **Docker Deployment** - Run the platform locally with Docker Compose using separate FastAPI, PostgreSQL, and batch ETL services. The configuration uses PostgreSQL 18 and Python 3.11.
+
+  **Build and Start**
+
+  ```bash
+  docker compose build api etl
+  docker compose up -d db api
+  ```
+
+  **Load Sample Telemetry**
+
+  ```bash
+  docker compose run --rm etl
+  ```
+
+  Open the interactive API documentation at http://localhost:8000/docs.
+
+  **Verify the Database**
+
+  ```bash
+  docker compose exec db sh -c \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT COUNT(*) FROM telemetry_readings;"'
+  ```
+
+**Stop the Application**
+
+  ```bash
+  docker compose down
+  ```
+
 - **Cloud Integration** — Use AWS S3 and RDS for cloud storage and database hosting.
 - **Anomaly Detection** — Explore Isolation Forest to identify unusual telemetry patterns.
 
@@ -98,7 +128,7 @@ aerospace-telemetry-platform/
 - [x] Data validation and quality checks
 - [x] SQL analytics
 - [x] FastAPI endpoints
-- [ ] Docker containerization
+- [x] Docker containerization
 - [ ] AWS integration
 - [ ] Anomaly detection
 - [ ] Automated testing and documentation
