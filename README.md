@@ -24,9 +24,32 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
   psql -X -P pager=off -v ON_ERROR_STOP=1 \
     -d aerospace_telemetry -f database/analytics.sql
   ```
-- **REST API:** Build FastAPI endpoints to retrieve mission information and telemetry statistics.
-- **Cloud Integration:** Use AWS S3 and RDS for cloud-based storage and database hosting.
-- **Anomaly Detection:** Explore Isolation Forest to identify unusual telemetry patterns.
+- **REST API** — Retrieve mission information, telemetry readings, and sensor statistics through a read-only API built with FastAPI, SQLAlchemy, and PostgreSQL.
+
+  | Endpoint | Description |
+  | --- | --- |
+  | `GET /health` | Check API availability |
+  | `GET /missions` | List all missions |
+  | `GET /missions/{mission_id}` | Retrieve mission details |
+  | `GET /missions/{mission_id}/telemetry` | Retrieve telemetry with sensor, timestamp, and pagination filters |
+  | `GET /missions/{mission_id}/stats` | Retrieve mission and per-sensor statistics |
+
+  **Run locally**
+
+  ```bash
+  python -m uvicorn api.main:app --reload
+  ```
+
+  Open the interactive documentation at http://127.0.0.1:8000/docs.
+
+  **Run API tests**
+
+  ```bash
+  python -m pytest tests/test_api.py -v
+  ```
+
+- **Cloud Integration** — Use AWS S3 and RDS for cloud storage and database hosting.
+- **Anomaly Detection** — Explore Isolation Forest to identify unusual telemetry patterns.
 
 ## **Technology Stack**
 
