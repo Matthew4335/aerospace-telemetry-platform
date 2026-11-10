@@ -72,7 +72,7 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT COUNT(*) FROM telemetry_readings;"'
   ```
 
-**Stop the Application**
+  **Stop the Application**
 
   ```bash
   docker compose down
