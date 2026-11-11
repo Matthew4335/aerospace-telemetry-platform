@@ -81,6 +81,28 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
 - **Cloud Integration** — Use AWS S3 and RDS for cloud storage and database hosting.
 - **Anomaly Detection** — Explore Isolation Forest to identify unusual telemetry patterns.
 
+    The platform includes an unsupervised anomaly detection
+    pipeline built using scikit-learn's Isolation Forest.
+
+    The model analyzes telemetry independently for each
+    mission and sensor, using three engineered features:
+
+    - Raw sensor measurement
+    - Absolute deviation from a local rolling median
+    - Absolute change between consecutive measurements
+
+    Detected anomalies are stored in the PostgreSQL
+    `telemetry_anomalies` table and linked to the original
+    telemetry readings.
+
+
+    **Run with Docker**
+
+    ```bash
+    docker compose build ml
+        docker compose run --rm ml
+    ```
+
 ## **Technology Stack**
 
 | Category | Technologies |

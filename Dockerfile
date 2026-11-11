@@ -22,6 +22,7 @@ RUN python -m pip install --no-cache-dir \
 # Copy application code
 COPY api/ ./api/
 COPY etl/ ./etl/
+COPY ml/ ./ml/
 
 # FastAPI HTTP port
 EXPOSE 8000
