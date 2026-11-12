@@ -5,6 +5,8 @@ import type {
     MissionStats,
     TelemetryReading,
     TelemetryResponse,
+    AnomalyReading,
+    AnomalyResponse,
 } from "./types";
 
 const API_BASE_URL = (
@@ -96,3 +98,42 @@ export async function getAllTelemetry(
 
     return readings;
 }
+
+
+// Retrieve all anomaly pages for a mission and sensor.
+export async function getAllAnomalies(
+    missionId: number,
+    sensorId: number,
+    signal?: AbortSignal
+): Promise<AnomalyReading[]> {
+    const pageSize = 1000;
+    let offset = 0;
+    let total = Infinity;
+
+    const anomalies: AnomalyReading[] = [];
+
+    while (offset < total) {
+        const params = new URLSearchParams({
+            sensor_id: String(sensorId),
+            limit: String(pageSize),
+            offset: String(offset),
+        });
+
+        const page = await request<AnomalyResponse>(
+            `/missions/${missionId}/anomalies?${params}`,
+            signal
+        );
+
+        anomalies.push(...page.anomalies);
+
+        total = page.total;
+        offset += page.anomalies.length;
+
+        if (page.anomalies.length === 0) {
+            break;
+        }
+    }
+
+    return anomalies;
+}
+

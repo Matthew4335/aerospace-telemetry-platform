@@ -52,3 +52,26 @@ export interface MissionStats {
     last_reading: string | null;
     sensors: SensorStats[];
 }
+
+
+export interface AnomalyReading {
+    anomaly_id: number;
+    reading_id: number;
+    mission_id: number;
+    sensor_id: number;
+    sensor_name: string;
+    measurement_unit: string;
+    recorded_at: string;
+    measurement_value: number;
+    anomaly_score: number;
+    model_version: string;
+}
+
+export interface AnomalyResponse {
+    mission_id: number;
+    total: number;
+    limit: number;
+    offset: number;
+    anomalies: AnomalyReading[];
+}
+

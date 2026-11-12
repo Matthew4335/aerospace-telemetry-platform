@@ -82,6 +82,21 @@ services:
       db:
         condition: service_healthy
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+
+    ports:
+      - "127.0.0.1:8080:80"
+
+    depends_on:
+      - api
+
+    restart: unless-stopped
+
 # ------------------------------------
 # PERSISTENT DATABASE STORAGE
 # ------------------------------------

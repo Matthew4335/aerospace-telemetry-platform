@@ -105,6 +105,57 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
     docker compose run --rm ml
     ```
 
+
+## Full-Stack Dashboard
+
+The Aerospace Telemetry Platform includes a React and TypeScript dashboard for exploring mission telemetry, sensor statistics, and anomalies flagged by Isolation Forest.
+
+### Architecture
+
+| Component | Role |
+| --- | --- |
+| PostgreSQL | Stores missions, sensor metadata, telemetry readings, and anomaly predictions |
+| ETL | Validates source data and loads telemetry into PostgreSQL |
+| Isolation Forest | Flags statistically unusual readings using features derived from sensor measurements |
+| FastAPI | Exposes missions, sensors, statistics, telemetry, and anomalies through REST endpoints |
+| React and Recharts | Display interactive telemetry charts and highlight flagged readings |
+| Nginx | Serves the built frontend and proxies API requests to FastAPI |
+
+### Run Locally
+
+From the repository root, build and start PostgreSQL, the API, and the dashboard.
+
+```bash
+docker compose up -d --build db api frontend
+```
+
+If the database is empty, load sample telemetry and generate anomaly predictions in that order.
+
+```bash
+docker compose run --rm etl
+docker compose run --rm ml
+```
+
+| Application | URL |
+| --- | --- |
+| Dashboard | [http://localhost:8080](http://localhost:8080) |
+| FastAPI documentation | [http://localhost:8000/docs](http://localhost:8000/docs) |
+| Missions endpoint through Nginx | [http://localhost:8080/api/missions](http://localhost:8080/api/missions) |
+
+### Explore Telemetry and Anomalies
+
+Select a mission and sensor to view telemetry over time. The dashboard matches predictions to telemetry by reading ID, highlights flagged readings on the chart, and lists their timestamps, measurement values, and model decision scores in a table.
+
+Isolation Forest flags statistical outliers for review. Confirming an equipment failure requires further investigation.
+
+### Stop the Application
+
+```bash
+docker compose down
+```
+
+PostgreSQL data persists in a named Docker volume. Running `docker compose down -v` deletes the volume and its database contents.
+
 ## React Telemetry Dashboard
 
 The project includes a React and TypeScript dashboard for

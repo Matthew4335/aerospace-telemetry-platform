@@ -1,10 +1,10 @@
-
 import { useMemo } from "react";
 
 import {
     CartesianGrid,
     Line,
     LineChart,
+    ReferenceDot,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -12,6 +12,7 @@ import {
 } from "recharts";
 
 import type {
+    AnomalyReading,
     Sensor,
     TelemetryReading,
 } from "../types";
@@ -19,12 +20,23 @@ import type {
 interface TelemetryChartProps {
     sensor: Sensor;
     readings: TelemetryReading[];
+    anomalies: AnomalyReading[];
+    showAnomalies: boolean;
 }
 
 export default function TelemetryChart({
     sensor,
     readings,
+    anomalies,
+    showAnomalies,
 }: TelemetryChartProps) {
+    const anomalyIds = useMemo(
+        () => new Set(
+            anomalies.map((a) => a.reading_id)
+        ),
+        [anomalies]
+    );
+
     const chartData = useMemo(() => {
         return readings
             .map((reading) => ({
@@ -45,6 +57,13 @@ export default function TelemetryChart({
             );
     }, [readings]);
 
+    // Find chart points matching ML anomaly reading IDs.
+    const flaggedPoints = useMemo(() => {
+        return chartData.filter(
+            (reading) => anomalyIds.has(reading.reading_id)
+        );
+    }, [chartData, anomalyIds]);
+
     return (
         <section className="panel chart-panel">
             <div className="section-heading">
@@ -53,9 +72,7 @@ export default function TelemetryChart({
                         TELEMETRY TIMESERIES
                     </p>
 
-                    <h2>
-                        {sensor.sensor_name}
-                    </h2>
+                    <h2>{sensor.sensor_name}</h2>
 
                     <p className="muted">
                         {sensor.sensor_type} ·{" "}
@@ -68,9 +85,21 @@ export default function TelemetryChart({
                 </span>
             </div>
 
+            <div className="chart-legend">
+                <span>
+                    <span className="legend-line" />
+                    Telemetry
+                </span>
+
+                <span>
+                    <span className="legend-dot" />
+                    Detected anomaly
+                </span>
+            </div>
+
             {chartData.length === 0 ? (
                 <p className="empty-state">
-                    No readings available for this sensor.
+                    No telemetry readings available.
                 </p>
             ) : (
                 <div className="chart-wrapper">
@@ -137,9 +166,7 @@ export default function TelemetryChart({
                                 formatter={(value) => [
                                     Number(value).toLocaleString(
                                         undefined,
-                                        {
-                                            maximumFractionDigits: 2,
-                                        }
+                                        { maximumFractionDigits: 2 }
                                     ),
                                     `${sensor.sensor_name} (${sensor.measurement_unit})`,
                                 ]}
@@ -160,10 +187,30 @@ export default function TelemetryChart({
                                 activeDot={{ r: 5 }}
                                 isAnimationActive={false}
                             />
+
+                            {showAnomalies &&
+                                flaggedPoints.map((reading) => (
+                                    <ReferenceDot
+                                        key={reading.reading_id}
+                                        x={reading.timestamp}
+                                        y={reading.measurement_value}
+                                        r={5}
+                                        fill="#fb7185"
+                                        stroke="#ffffff"
+                                        strokeWidth={1}
+                                        ifOverflow="discard"
+                                    />
+                                ))}
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
             )}
+
+            <p className="chart-note">
+                Red markers indicate measurements flagged
+                by Isolation Forest. Predictions are
+                statistical outliers, not confirmed faults.
+            </p>
         </section>
     );
 }

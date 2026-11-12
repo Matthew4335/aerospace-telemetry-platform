@@ -6,6 +6,7 @@ import {
 
 import {
   getAllTelemetry,
+  getAllAnomalies,
   getMissionSensors,
   getMissionStats,
   getMissions,
@@ -18,6 +19,7 @@ import type {
   MissionStats,
   Sensor,
   TelemetryReading,
+  AnomalyReading,
 } from "./types";
 
 function formatNumber(
@@ -60,6 +62,19 @@ export default function App() {
   const [readings, setReadings] = useState<
     TelemetryReading[]
   >([]);
+
+  const [anomalies, setAnomalies] = useState<
+    AnomalyReading[]
+  >([]);
+
+  const [loadingAnomalies, setLoadingAnomalies] =
+    useState(false);
+
+  const [anomalyError, setAnomalyError] =
+    useState<string | null>(null);
+
+  const [showAnomalies, setShowAnomalies] =
+    useState(true);
 
   const [loadingMissions, setLoadingMissions] =
     useState(true);
@@ -190,6 +205,45 @@ export default function App() {
     return () => controller.abort();
   }, [missionId, sensorId]);
 
+
+  useEffect(() => {
+    setAnomalies([]);
+    setAnomalyError(null);
+
+    if (missionId === null || sensorId === null) {
+      setLoadingAnomalies(false);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    setLoadingAnomalies(true);
+
+    getAllAnomalies(
+      missionId,
+      sensorId,
+      controller.signal
+    )
+      .then((data) => {
+        if (controller.signal.aborted) return;
+
+        setAnomalies(data);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+
+        setAnomalyError(String(error));
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoadingAnomalies(false);
+        }
+      });
+
+    return () => controller.abort();
+  }, [missionId, sensorId]);
+
+
   const selectedMission = missions.find(
     (mission) => mission.mission_id === missionId
   );
@@ -201,6 +255,20 @@ export default function App() {
   const selectedSensorStats = stats?.sensors.find(
     (sensor) => sensor.sensor_id === sensorId
   );
+
+  const anomalyPercentage =
+    readings.length > 0
+      ? (anomalies.length / readings.length) * 100
+      : 0;
+
+  const mostUnusualAnomaly =
+    anomalies.length > 0
+      ? anomalies.reduce((lowest, current) =>
+        current.anomaly_score < lowest.anomaly_score
+          ? current
+          : lowest
+      )
+      : null;
 
   const recentReadings = readings
     .slice(-8)
@@ -480,6 +548,81 @@ export default function App() {
           ))}
         </section>
 
+
+        <section className="anomaly-summary">
+          <div className="anomaly-metric">
+            <span className="metric-label">
+              Detected Anomalies
+            </span>
+
+            <strong className="anomaly-count">
+              {loadingAnomalies
+                ? "Loading..."
+                : anomalyError
+                  ? "—"
+                  : anomalies.length.toLocaleString()}
+            </strong>
+
+            <span className="metric-detail">
+              Isolation Forest predictions
+            </span>
+          </div>
+
+          <div className="anomaly-metric">
+            <span className="metric-label">
+              Anomaly Percentage
+            </span>
+
+            <strong className="anomaly-count">
+              {loadingAnomalies || anomalyError
+                ? "—"
+                : `${anomalyPercentage.toFixed(2)}%`}
+            </strong>
+
+            <span className="metric-detail">
+              Selected sensor readings
+            </span>
+          </div>
+
+          <div className="anomaly-metric">
+            <span className="metric-label">
+              Lowest Decision Score
+            </span>
+
+            <strong className="anomaly-count">
+              {loadingAnomalies || anomalyError
+                ? "—"
+                : mostUnusualAnomaly
+                  ? mostUnusualAnomaly.anomaly_score.toFixed(4)
+                  : "—"}
+            </strong>
+
+            <span className="metric-detail">
+              More negative indicates more anomalous
+            </span>
+          </div>
+        </section>
+
+        {anomalyError && (
+          <div className="alert" role="alert">
+            Could not load anomalies: {anomalyError}
+          </div>
+        )}
+
+        <div className="anomaly-toggle">
+          <label>
+            <input
+              type="checkbox"
+              checked={showAnomalies}
+              onChange={(event) =>
+                setShowAnomalies(event.target.checked)
+              }
+            />
+            Show anomaly markers on chart
+          </label>
+        </div>
+
+
         {telemetryError && (
           <div className="alert" role="alert">
             Could not load telemetry:{" "}
@@ -495,12 +638,104 @@ export default function App() {
           <TelemetryChart
             sensor={selectedSensor}
             readings={readings}
+            anomalies={anomalies}
+            showAnomalies={showAnomalies}
           />
         ) : (
           <section className="panel loading-panel">
             Select a mission and sensor to view data.
           </section>
         )}
+
+
+        <section className="panel">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">
+                MACHINE LEARNING / ANOMALIES
+              </p>
+
+              <h2>Detected Anomalies</h2>
+
+              <p className="muted">
+                Isolation Forest results for the
+                selected sensor.
+              </p>
+            </div>
+
+            <span className="count-pill">
+              {anomalies.length} flagged
+            </span>
+          </div>
+
+          {loadingAnomalies ? (
+            <p className="empty-state">
+              Loading anomaly predictions...
+            </p>
+          ) : anomalyError ? (
+            <p className="empty-state">
+              Anomaly predictions are unavailable.
+            </p>
+          ) : anomalies.length === 0 ? (
+            <p className="empty-state">
+              No anomalies found for this sensor.
+            </p>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Reading ID</th>
+                    <th>Timestamp</th>
+                    <th>Sensor</th>
+                    <th>Measurement</th>
+                    <th>Anomaly Score</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {[...anomalies]
+                    .sort(
+                      (a, b) =>
+                        a.anomaly_score - b.anomaly_score
+                    )
+                    .slice(0, 20)
+                    .map((anomaly) => (
+                      <tr key={anomaly.anomaly_id}>
+                        <td>{anomaly.reading_id}</td>
+
+                        <td>
+                          {formatDate(anomaly.recorded_at)}
+                        </td>
+
+                        <td>
+                          {anomaly.sensor_name}
+                        </td>
+
+                        <td>
+                          {formatNumber(
+                            anomaly.measurement_value
+                          )}{" "}
+                          {anomaly.measurement_unit}
+                        </td>
+
+                        <td className="score-negative">
+                          {anomaly.anomaly_score.toFixed(4)}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className="chart-note">
+            Showing the 20 lowest-scoring readings.
+            Lower decision scores indicate more
+            statistically unusual observations.
+          </p>
+        </section>
+
 
         <section className="panel">
           <div className="section-heading">

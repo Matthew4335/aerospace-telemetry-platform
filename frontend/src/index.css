@@ -333,3 +333,104 @@ input {
     height: 300px;
   }
 }
+
+/* Day 14: Anomaly detection interface */
+
+.anomaly-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.anomaly-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  background: #142035;
+  border: 1px solid #2a3b53;
+  border-radius: 12px;
+}
+
+.anomaly-count {
+  color: #fb7185;
+  font-size: 27px;
+  font-weight: 700;
+}
+
+.anomaly-toggle {
+  margin: 8px 0 18px;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.anomaly-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.anomaly-toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: #fb7185;
+}
+
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-line {
+  width: 20px;
+  height: 3px;
+  border-radius: 2px;
+  background: #38bdf8;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #fb7185;
+}
+
+.chart-note {
+  margin: 18px 0 0;
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.score-negative {
+  color: #fb7185;
+  font-weight: 600;
+}
+
+@media (max-width: 750px) {
+  .anomaly-summary {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .anomaly-metric {
+    padding: 18px;
+  }
+
+  .anomaly-count {
+    font-size: 23px;
+  }
+}
