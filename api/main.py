@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Connection
 
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # --------------------------------------------------
 # DATABASE CONNECTION
@@ -29,6 +31,19 @@ app = FastAPI(
     title="Aerospace Telemetry API",
     version="1.0.0",
 )
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
+
 
 
 def get_db():
@@ -93,6 +108,35 @@ class MissionStats(BaseModel):
     first_reading: datetime | None
     last_reading: datetime | None
     sensors: list[SensorStats]
+
+
+class SensorInfo(BaseModel):
+    sensor_id: int
+    sensor_name: str
+    sensor_type: str
+    measurement_unit: str
+
+
+class AnomalyReading(BaseModel):
+    anomaly_id: int
+    reading_id: int
+    mission_id: int
+    sensor_id: int
+    sensor_name: str
+    measurement_unit: str
+    recorded_at: datetime
+    measurement_value: float
+    anomaly_score: float
+    model_version: str
+
+
+class AnomalyPage(BaseModel):
+    mission_id: int
+    total: int
+    limit: int
+    offset: int
+    anomalies: list[AnomalyReading]
+
 
 
 # --------------------------------------------------
@@ -371,3 +415,139 @@ def get_mission_stats(
             dict(row) for row in sensor_rows
         ],
     }
+
+
+@app.get(
+    "/missions/{mission_id}/sensors",
+    response_model=list[SensorInfo],
+)
+def list_mission_sensors(
+    mission_id: int,
+    conn: Connection = Depends(get_db),
+):
+    # Return 404 if the mission doesn't exist.
+    find_mission(conn, mission_id)
+
+    query = text("""
+        SELECT DISTINCT
+            s.sensor_id,
+            s.sensor_name,
+            s.sensor_type,
+            s.measurement_unit
+        FROM sensors AS s
+        JOIN telemetry_readings AS r
+            ON s.sensor_id = r.sensor_id
+        WHERE r.mission_id = :mission_id
+        ORDER BY s.sensor_name
+    """)
+
+    rows = conn.execute(
+        query,
+        {"mission_id": mission_id},
+    ).mappings().all()
+
+    return [dict(row) for row in rows]
+
+
+@app.get(
+    "/missions/{mission_id}/anomalies",
+    response_model=AnomalyPage,
+)
+def get_mission_anomalies(
+    mission_id: int,
+    sensor_id: int | None = Query(
+        default=None,
+        gt=0,
+    ),
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=1000,
+    ),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    conn: Connection = Depends(get_db),
+):
+    # Confirm the mission exists.
+    find_mission(conn, mission_id)
+
+    filters = [
+        "r.mission_id = :mission_id"
+    ]
+
+    params = {
+        "mission_id": mission_id,
+    }
+
+    if sensor_id is not None:
+        filters.append(
+            "r.sensor_id = :sensor_id"
+        )
+        params["sensor_id"] = sensor_id
+
+    where_clause = " AND ".join(filters)
+
+    # Count matching anomalies before pagination.
+    count_query = text(f"""
+        SELECT COUNT(*)
+        FROM telemetry_anomalies AS a
+        JOIN telemetry_readings AS r
+            ON a.reading_id = r.reading_id
+        WHERE {where_clause}
+    """)
+
+    total = conn.execute(
+        count_query,
+        params,
+    ).scalar_one()
+
+    # Retrieve the requested anomaly page.
+    anomaly_query = text(f"""
+        SELECT
+            a.anomaly_id,
+            a.reading_id,
+            r.mission_id,
+            r.sensor_id,
+            s.sensor_name,
+            s.measurement_unit,
+            r.recorded_at,
+            r.measurement_value,
+            a.anomaly_score,
+            a.model_version
+        FROM telemetry_anomalies AS a
+        JOIN telemetry_readings AS r
+            ON a.reading_id = r.reading_id
+        JOIN sensors AS s
+            ON r.sensor_id = s.sensor_id
+        WHERE {where_clause}
+        ORDER BY
+            r.recorded_at,
+            a.anomaly_id
+        LIMIT :limit
+        OFFSET :offset
+    """)
+
+    query_params = {
+        **params,
+        "limit": limit,
+        "offset": offset,
+    }
+
+    rows = conn.execute(
+        anomaly_query,
+        query_params,
+    ).mappings().all()
+
+    return {
+        "mission_id": mission_id,
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+        "anomalies": [
+            dict(row) for row in rows
+        ],
+    }
+
+

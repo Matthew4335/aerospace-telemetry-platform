@@ -33,6 +33,8 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
   | `GET /missions/{mission_id}` | Retrieve mission details |
   | `GET /missions/{mission_id}/telemetry` | Retrieve telemetry with sensor, timestamp, and pagination filters |
   | `GET /missions/{mission_id}/stats` | Retrieve mission and per-sensor statistics |
+  | `GET /missions/{mission_id}/sensors` | Retrieve sensors with telemetry for a mission |
+  | `GET /missions/{mission_id}/anomalies` | Retrieve paginated anomaly predictions |
 
   **Run locally**
 
@@ -100,8 +102,20 @@ The platform uses synthetic flight data, including altitude, velocity, temperatu
 
     ```bash
     docker compose build ml
-        docker compose run --rm ml
+    docker compose run --rm ml
     ```
+
+## React Telemetry Dashboard
+
+The project includes a React and TypeScript dashboard for
+exploring mission telemetry through the FastAPI backend.
+
+Features:
+- Dynamic mission and sensor selection
+- Interactive time-series telemetry charts
+- Mission-wide and sensor-specific statistics
+- Automatic pagination for complete telemetry retrieval
+- Responsive layout and API error handling
 
 ## **Technology Stack**
 
@@ -151,8 +165,7 @@ aerospace-telemetry-platform/
 - [x] SQL analytics
 - [x] FastAPI endpoints
 - [x] Docker containerization
-- [ ] AWS integration
-- [ ] Anomaly detection
+- [x] Anomaly detection
 - [ ] Automated testing and documentation
 
 ## **Author**
